@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Katalog Toko Mahasiswa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Header / Navbar -->
+  <header class="bg-white border-b sticky top-0 z-20 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <span class="text-2xl">🛍️</span>
+        <h1 class="text-xl font-bold text-slate-900">KaryaMahasiswa</h1>
+      </div>
+      <button onclick="toggleCart()" class="relative p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition">
+        🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
+    <!-- Hero Banner -->
+    <div class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-6 md:p-10 text-white mb-8 shadow-md">
+      <h2 class="text-2xl md:text-4xl font-extrabold mb-2">Produk Kreatif & Berkualitas</h2>
+      <p class="text-indigo-100 max-w-xl">Dukung produk karya mahasiswa lokal. Belanja mudah, cepat, dan aman langsung via WhatsApp.</p>
+    </div>
+
+    <!-- Katalog Produk -->
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-xl font-bold text-slate-900">Daftar Produk</h3>
+      <button onclick="loadProducts()" class="text-sm text-indigo-600 hover:underline">🔄 Refresh Data</button>
+    </div>
+
+    <div id="product-loading" class="text-center py-12 text-slate-500">
+      <div class="inline-block animate-spin text-3xl mb-2">⏳</div>
+      <p>Memuat produk dari database...</p>
+    </div>
+
+    <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 hidden"></div>
+  </main>
+
+  <!-- Modal Keranjang Belanja & Checkout -->
+  <div id="cart-modal" class="fixed inset-0 bg-black/50 z-30 hidden flex justify-end">
+    <div class="bg-white w-full max-w-md h-full flex flex-col p-6 shadow-2xl overflow-y-auto">
+      <div class="flex justify-between items-center pb-4 border-b">
+        <h4 class="text-lg font-bold">Keranjang Belanja</h4>
+        <button onclick="toggleCart()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+      </div>
+
+      <div id="cart-items" class="flex-1 py-4 space-y-3 overflow-y-auto"></div>
+
+      <div class="border-t pt-4 space-y-4">
+        <div class="flex justify-between text-lg font-bold">
+          <span>Total:</span>
+          <span id="cart-total" class="text-indigo-600">Rp 0</span>
+        </div>
+
+        <form id="checkout-form" onsubmit="handleCheckout(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Nama Pembeli</label>
+            <input type="text" id="cust-name" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Contoh: Andi Pratama">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">No. WhatsApp</label>
+            <input type="tel" id="cust-phone" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Contoh: 08123456789">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Alamat Pengiriman</label>
+            <textarea id="cust-address" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" rows="2" placeholder="Jalan, Kota, Kode Pos"></textarea>
+          </div>
+          <button type="submit" id="btn-submit" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition flex items-center justify-center space-x-2">
+            <span>Beli Sekarang via WhatsApp</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Konfigurasi
+    const API_URL = "https://script.google.com/macros/s/AKfycbx2y8qm483TtDmvHrLPi2orJzHNoBmUMiwW2DMuLYzCKA6a1B6CBf1uxpfOwT79kkMW/exec";
+    const WA_ADMIN = "6281805224432"; // Ganti dengan nomor WA admin
+
+    let products = [];
+    let cart = [];
+
+    // Ambil Data Produk dari Google Sheets
+    async function loadProducts() {
+      document.getElementById("product-loading").classList.remove("hidden");
+      document.getElementById("product-grid").classList.add("hidden");
+
+      try {
+        const res = await fetch(API_URL);
+        const json = await res.json();
+        products = json.data;
+        renderProducts();
+      } catch (err) {
+        document.getElementById("product-loading").innerHTML = "<p class='text-red-500'>Gagal memuat produk. Pastikan URL Apps Script benar.</p>";
+      }
+    }
+
+    function renderProducts() {
+      const grid = document.getElementById("product-grid");
+      grid.innerHTML = "";
+      products.forEach(p => {
+        grid.innerHTML += `
+          <div class="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col">
+            <img src="${p.foto || 'https://via.placeholder.com/300'}" class="h-48 w-full object-cover" alt="${p.nama}">
+            <div class="p-4 flex-1 flex flex-col justify-between">
+              <div>
+                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md">${p.kategori}</span>
+                <h4 class="font-bold text-slate-900 mt-2">${p.nama}</h4>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-2">${p.deskripsi}</p>
+              </div>
+              <div class="mt-4 flex items-center justify-between">
+                <span class="font-extrabold text-indigo-600">Rp ${Number(p.harga).toLocaleString("id-ID")}</span>
+                <button onclick="addToCart(${p.id})" class="bg-indigo-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition">+ Keranjang</button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      document.getElementById("product-loading").classList.add("hidden");
+      grid.classList.remove("hidden");
+    }
+
+    function addToCart(productId) {
+      const prod = products.find(p => p.id == productId);
+      const exist = cart.find(item => item.id == productId);
+      if (exist) {
+        exist.qty += 1;
+      } else {
+        cart.push({ ...prod, qty: 1 });
+      }
+      updateCartUI();
+    }
+
+    function updateCartUI() {
+      document.getElementById("cart-count").innerText = cart.reduce((acc, i) => acc + i.qty, 0);
+      const container = document.getElementById("cart-items");
+      container.innerHTML = "";
+
+      let total = 0;
+      cart.forEach((item, idx) => {
+        const subtotal = item.harga * item.qty;
+        total += subtotal;
+        container.innerHTML += `
+          <div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg text-sm">
+            <div>
+              <p class="font-semibold">${item.nama}</p>
+              <p class="text-xs text-slate-500">Rp ${Number(item.harga).toLocaleString("id-ID")} x ${item.qty}</p>
+            </div>
+            <button onclick="cart.splice(${idx}, 1); updateCartUI()" class="text-red-500 text-xs hover:underline">Hapus</button>
+          </div>
+        `;
+      });
+      document.getElementById("cart-total").innerText = "Rp " + total.toLocaleString("id-ID");
+    }
+
+    function toggleCart() {
+      document.getElementById("cart-modal").classList.toggle("hidden");
+    }
+
+    async function handleCheckout(e) {
+      e.preventDefault();
+      if (cart.length === 0) return alert("Keranjang masih kosong!");
+
+      const btn = document.getElementById("btn-submit");
+      btn.innerText = "Memproses pesanan...";
+      btn.disabled = true;
+
+      const payload = {
+        nama: document.getElementById("cust-name").value,
+        whatsapp: document.getElementById("cust-phone").value,
+        alamat: document.getElementById("cust-address").value,
+        items: cart,
+        total: cart.reduce((acc, i) => acc + (i.harga * i.qty), 0)
+      };
+
+      try {
+        // Simpan ke Google Sheets via POST
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        
+        // Format Pesan WhatsApp
+        let textWA = `Halo Admin, saya mau konfirmasi pesanan:\n`;
+        textWA += `Invoice: *${result.invoice || 'BARU'}*\n`;
+        textWA += `Nama: ${payload.nama}\n`;
+        textWA += `Alamat: ${payload.alamat}\n\n`;
+        textWA += `*Daftar Produk:*\n`;
+        payload.items.forEach(i => {
+          textWA += `- ${i.nama} (${i.qty}x) = Rp ${(i.harga * i.qty).toLocaleString("id-ID")}\n`;
+        });
+        textWA += `\n*Total Bayar: Rp ${payload.total.toLocaleString("id-ID")}*`;
+
+        // Redirect ke WhatsApp
+        window.open(`https://wa.me/${WA_ADMIN}?text=${encodeURIComponent(textWA)}`, "_blank");
+
+        cart = [];
+        updateCartUI();
+        toggleCart();
+        e.target.reset();
+      } catch (err) {
+        alert("Terjadi kesalahan saat menyimpan pesanan.");
+      } finally {
+        btn.innerText = "Beli Sekarang via WhatsApp";
+        btn.disabled = false;
+      }
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
