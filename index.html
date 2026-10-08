@@ -199,7 +199,6 @@
           textWA += `- ${i.nama} (${i.qty}x) = Rp ${(i.harga * i.qty).toLocaleString("id-ID")}\n`;
         });
         textWA += `\n*Total Bayar: Rp ${payload.total.toLocaleString("id-ID")}*`;
-
         // Redirect ke WhatsApp
         window.open(`https://wa.me/${WA_ADMIN}?text=${encodeURIComponent(textWA)}`, "_blank");
 
@@ -219,3 +218,4 @@
   </script>
 </body>
 </html>
+
